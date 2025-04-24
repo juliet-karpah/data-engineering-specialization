@@ -1,13 +1,7 @@
-#!/usr/bin/env python
-# coding: utf-8
 
-# ## Timing Decorator
-
-# In[31]:
-
-
-# Function decorator that times execution
 from time import time
+from functools import wraps, lru_cache
+from datetime import timedelta, datetime
 
 def timer(func):
     # Nested wrapper function
@@ -19,8 +13,6 @@ def timer(func):
     return wrapper
 
 
-# In[32]:
-
 
 @timer
 def sum_nums():
@@ -31,19 +23,11 @@ def sum_nums():
 sum_nums()
 
 
-# ## Logging Decorator
-
-# In[33]:
-
-
 def logger(func):
     def wrapper(*args, **kwargs):
         print(f"Ran {func.__name__} with args: {args}, and kwargs: {kwargs}")
         return func(*args, **kwargs)
     return wrapper
-
-
-# In[34]:
 
 
 @logger
@@ -58,16 +42,9 @@ add(10, 20)
 sub(30, 20)
 
 
-# ## Caching Decorator
-
-# In[35]:
-
-
-import functools
-
 def cache(func):
     cache_data = {}
-    @functools.wraps(func)
+    wraps(func)
     def wrapper(*args, **kwargs):
         key = args + tuple(kwargs.items())
         if key not in cache_data:
@@ -75,11 +52,6 @@ def cache(func):
         return cache_data[key]
     return wrapper
 
-
-# In[36]:
-
-
-import time
 @cache
 def expensive_func(x):
     start_time = time.time()
@@ -87,21 +59,6 @@ def expensive_func(x):
     print(f"{expensive_func.__name__} ran in {time.time() - start_time:.2f} secs")
     return x
 
-
-
-# In[37]:
-
-
-get_ipython().run_line_magic('time', 'print(expensive_func(1))')
-
-
-# In[38]:
-
-
-get_ipython().run_line_magic('time', 'print(expensive_func(1))')
-
-
-# In[39]:
 
 
 @cache
@@ -112,19 +69,7 @@ def fibonacci(n):
         return fibonacci(n-1) + fibonacci(n-2)
 
 
-# In[40]:
-
-
 fibonacci(10)
-
-
-# ## Delay
-
-# In[41]:
-
-
-import time
-from functools import wraps
 
 def delay(seconds):
     def inner(func):
@@ -136,13 +81,44 @@ def delay(seconds):
         return wrapper
     return inner
 
-
-# In[42]:
-
-
 @delay(seconds=3)
 def print_text():
     print("Hello World")
 
 print_text()
 
+
+## Challenge to add lru cache to the previous cache decorator provided by the instructor.
+
+def cache(duration, max_size):
+    """
+    This decorator function uses the LRU caching strategy to store results from a decorated function. 
+    The argument duration is used to determine when the cache expires and max_size is used to determine the maximum amount of 
+    items a cache can hold before it expels the least recently accessed data point. 
+
+    Parameter duration: The number of seconds to wait before invalidating the cache.
+    Precondition: It is a int
+
+    Parameter max_size: The maximum number of items that the cache can hold. By default max_size is 128.
+    Precodition: max_size is an int. 
+    """
+    def wrapper_cache(func):
+        func = lru_cache(maxsize=max_size)(func)
+        func.lifetime = timedelta(seconds=duration)
+        func.expiration = func.lifetime + datetime.utcnow()
+    
+        wraps(func)
+        def wrapper_func(*args, **kwargs):
+            if datetime.utcnow() >= func.expiration:
+                func.cache_clear()
+            func.expiration = datetime.utcnow() + func.lifetime
+            return func(*args, **kwargs)
+        return wrapper_func
+    return wrapper_cache
+
+@cache(2,16)
+def fibonacci(n):
+    if n < 2:
+        return n
+    else:
+        return fibonacci(n-1) + fibonacci(n-2)
